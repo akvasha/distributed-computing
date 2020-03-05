@@ -5,13 +5,14 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
 type Product struct {
 	Title    string `json:"title"`
-	ID       string `json:"id"`
-	Category uint64 `json:"category"`
+	ID       uint64 `json:"id"`
+	Category string `json:"category"`
 }
 
 var products []Product
@@ -41,8 +42,12 @@ func deleteProduct(w http.ResponseWriter, r *http.Request) {
 	defer mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
+	id, err := strconv.ParseUint(params["id"], 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	for i, product := range products {
-		if product.ID == params["id"] {
+		if product.ID == id {
 			products = append(products[:i], products[i+1:]...)
 			return
 		}
@@ -58,8 +63,12 @@ func getProducts(w http.ResponseWriter, _ *http.Request) {
 func getProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
+	id, err := strconv.ParseUint(params["id"], 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	for _, product := range products {
-		if product.ID == params["id"] {
+		if product.ID == id {
 			if err := json.NewEncoder(w).Encode(product); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -75,8 +84,12 @@ func updateProduct(w http.ResponseWriter, r *http.Request) {
 	defer mutex.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
+	id, err := strconv.ParseUint(params["id"], 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	for i, product := range products {
-		if product.ID == params["id"] {
+		if product.ID == id {
 			var newProduct Product
 			if err := json.NewDecoder(r.Body).Decode(&newProduct); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
