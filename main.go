@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -27,14 +28,18 @@ func createProduct(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	for _, currProduct := range products {
-		if currProduct.ID == product.ID {
-			http.Error(w, "Item with such ID already exists!", http.StatusBadRequest)
-			return
+	var collision bool = true
+	for collision {
+		product.ID = rand.Uint64()
+		collision = false
+		for _, currProduct := range products {
+			if currProduct.ID == product.ID {
+				collision = true
+			}
 		}
 	}
 	products = append(products, product)
-	_ = json.NewEncoder(w).Encode(products)
+	_ = json.NewEncoder(w).Encode(product)
 }
 
 func deleteProduct(w http.ResponseWriter, r *http.Request) {
@@ -95,10 +100,9 @@ func updateProduct(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			newProduct.ID = product.ID
+			newProduct.ID = product.ID // I assume that we can't change product's ID like that
 			products = append(products[:i], products[i+1:]...)
 			products = append(products, newProduct)
-			_ = json.NewEncoder(w).Encode(product)
 			return
 		}
 	}
