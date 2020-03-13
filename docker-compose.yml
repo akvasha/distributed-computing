@@ -1,6 +1,12 @@
 version: "3"
 services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: DB_PASSWORD
   app:
     build: .
     ports:
     - 8000:8000
+    environment:
+      POSTGRES_ADDRESS: "host=db port=5432 user=postgres password=DB_PASSWORD dbname=postgres sslmode=disable"

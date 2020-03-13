@@ -25,6 +25,6 @@
 * **HttpMethod**: GET
 * **URL**: /products/{id}
 ### updateProduct
-* **Описание**: Обновляет информацию о товаре с указанным ID
+* **Описание**: Обновляет информацию о товаре
 * **HttpMethod**: PUT
-* **URL**: /products/{id}
+* **URL**: /products
