@@ -62,6 +62,7 @@ func (db *Client) GetProducts(limit, offset uint64) (products []Product, err err
 	if err != nil {
 		return
 	}
+	products = make([]Product, 0)
 	for rows.Next() {
 		var product Product
 		if err = rows.Scan(&product.ID, &product.Title, &product.Category); err != nil {

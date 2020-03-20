@@ -89,7 +89,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8000/products/5577006791947779410",
+					"raw": "http://127.0.0.1:8000/products/1",
 					"protocol": "http",
 					"host": [
 						"127",
@@ -100,7 +100,7 @@
 					"port": "8000",
 					"path": [
 						"products",
-						"5577006791947779410"
+						"1"
 					]
 				},
 				"description": "Возвращает товар с указанным ID"
@@ -113,7 +113,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8000/products/5577006791947779411",
+					"raw": "http://127.0.0.1:8000/products/2",
 					"protocol": "http",
 					"host": [
 						"127",
@@ -124,7 +124,7 @@
 					"port": "8000",
 					"path": [
 						"products",
-						"5577006791947779411"
+						"2"
 					]
 				},
 				"description": "Запрос на несуществующий ID"
@@ -138,10 +138,10 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n\t\"title\": \"Python is not awesome!\",\n\t\"category\": \"programming\"\n}"
+					"raw": "{\n\t\"title\": \"Python is not awesome!\",\n\t\"id\": 2,\n\t\"category\": \"programming\"\n}"
 				},
 				"url": {
-					"raw": "http://127.0.0.1:8000/products/8674665223082153551",
+					"raw": "http://127.0.0.1:8000/products",
 					"protocol": "http",
 					"host": [
 						"127",
@@ -151,8 +151,7 @@
 					],
 					"port": "8000",
 					"path": [
-						"products",
-						"8674665223082153551"
+						"products"
 					]
 				},
 				"description": "Обновляет информацию о товаре с указанным ID"
@@ -189,10 +188,10 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n\t\"item\": \"No comma after this pair\"\n\t\"category\": \"error\"\n}"
+					"raw": "{\n\t\"item\": \"No comma after this pair\"\n\t\"id\": 1\n\t\"category\": \"error\"\n}"
 				},
 				"url": {
-					"raw": "http://127.0.0.1:8000/products/8674665223082153551",
+					"raw": "http://127.0.0.1:8000/products",
 					"protocol": "http",
 					"host": [
 						"127",
@@ -202,8 +201,7 @@
 					],
 					"port": "8000",
 					"path": [
-						"products",
-						"8674665223082153551"
+						"products"
 					]
 				},
 				"description": "Некорректный json на входе"
@@ -216,7 +214,7 @@
 				"method": "DELETE",
 				"header": [],
 				"url": {
-					"raw": "http://127.0.0.1:8000/products/8674665223082153551",
+					"raw": "http://127.0.0.1:8000/products/2",
 					"protocol": "http",
 					"host": [
 						"127",
@@ -227,7 +225,7 @@
 					"port": "8000",
 					"path": [
 						"products",
-						"8674665223082153551"
+						"2"
 					]
 				},
 				"description": "Удаляет товар с указанным ID из списка"
