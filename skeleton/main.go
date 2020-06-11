@@ -63,18 +63,18 @@ func dbGetProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	var limit, offset uint64
+	params := r.URL.Query()
+	var limit, offset int
 	var err error
 	if _, ok := params["limit"]; ok {
-		limit, err = strconv.ParseUint(params["limit"], 10, 64)
+		limit, err = strconv.Atoi(params["limit"][0])
 		if err != nil {
 			responseError(w, err, http.StatusBadRequest)
 			return
 		}
 	}
 	if _, ok := params["offset"]; ok {
-		offset, err = strconv.ParseUint(params["offset"], 10, 64)
+		offset, err = strconv.Atoi(params["offset"][0])
 		if err != nil {
 			responseError(w, err, http.StatusBadRequest)
 			return
@@ -127,7 +127,6 @@ func authorize(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Content-Type", "application/json")
 	token := r.Header.Get("auth")
 	if err := ac.Validate(token); err != nil {
-		fmt.Println(err.Error())
 		if errResp, ok := err.(*authClient.ErrorRespStatus); ok {
 			responseError(w, errResp, errResp.StatusCode)
 		} else {

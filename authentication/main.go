@@ -2,6 +2,7 @@ package main
 
 import (
 	"DC-homework-1/authentication/dbClient"
+	"DC-homework-1/authentication/mqClient"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -16,18 +17,22 @@ import (
 )
 
 const (
-	ACCESSTOKEN  int = 0
-	REFRESHTOKEN int = 1
+	ACCESSTOKEN       int = 0
+	REFRESHTOKEN      int = 1
+	CONFIRMATIONTOKEN int = 2
 )
 
 type Config struct {
-	TokenLength          uint64
-	AccessTokenLifetime  time.Duration
-	RefreshTokenLifetime time.Duration
+	TokenLength               uint64
+	AccessTokenLifetime       time.Duration
+	RefreshTokenLifetime      time.Duration
+	ConfirmationTokenLifetime time.Duration
+	ConfirmationAddress       string
 }
 
 var db dbClient.Client
 var config Config
+var mq mqClient.MQClient
 
 type errorResponse struct {
 	Error string `json:"error"`
@@ -48,6 +53,10 @@ func (c *Config) Init() (err error) {
 	if c.RefreshTokenLifetime, err = time.ParseDuration(os.Getenv("REFRESH_TOKEN_LIFETIME")); err != nil {
 		return
 	}
+	if c.ConfirmationTokenLifetime, err = time.ParseDuration(os.Getenv("CONFIRMATION_TOKEN_LIFETIME")); err != nil {
+		return
+	}
+	c.ConfirmationAddress = os.Getenv("CONFIRM_ADDRESS")
 	return
 }
 
@@ -61,6 +70,7 @@ type SignUpRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 }
 
 func createHash(pass string) (string, error) {
@@ -80,13 +90,18 @@ func signUpHandler(w http.ResponseWriter, r *http.Request) {
 		responseError(w, err, http.StatusInternalServerError)
 	}
 	user := dbClient.User{
-		Username: req.Username,
-		Password: hash,
-		Email:    req.Email,
+		Username:    req.Username,
+		Password:    hash,
+		Email:       req.Email,
+		Phone:       req.Phone,
+		PhoneStatus: false,
 	}
 	if err = db.AddUser(user); err != nil {
 		responseError(w, err, http.StatusInternalServerError)
 		return
+	}
+	if err = sendPhoneConfirmation(user.Username, user.Phone); err != nil {
+		responseError(w, err, http.StatusInternalServerError)
 	}
 	return
 }
@@ -115,6 +130,15 @@ func signInHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		responseError(w, err, http.StatusUnauthorized)
+		return
+	}
+	if !user.PhoneStatus {
+		if err = sendPhoneConfirmation(user.Username, user.Phone); err != nil {
+			responseError(w, err, http.StatusInternalServerError)
+			return
+		}
+		responseError(w, errors.New("Phone is not confirmed, we have sent you new token, please confirm your phone."+
+			"Maybe your token has expired."), http.StatusForbidden)
 		return
 	}
 	var isDuplicate = true
@@ -157,6 +181,34 @@ func signInHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func sendPhoneConfirmation(username string, phone string) (err error) {
+	var isDuplicate = true
+	var confirmationToken string
+	for isDuplicate {
+		isDuplicate = false
+		confirmationToken = initToken(config.TokenLength)
+		confirmationTokenData := dbClient.TokenData{
+			Token:    confirmationToken,
+			Type:     CONFIRMATIONTOKEN,
+			Lifetime: time.Now().Add(config.ConfirmationTokenLifetime),
+			Username: username,
+		}
+		if err = db.AddToken(confirmationTokenData); err != nil {
+			if err == dbClient.ErrorDuplicateToken {
+				isDuplicate = true
+			} else {
+				return
+			}
+		}
+	}
+	reg := fmt.Sprintf("Confrim registration via token: %s", confirmationToken)
+	err = mq.SendMessage(mqClient.Message{
+		Receiver: phone,
+		Text:     reg,
+	})
+	return
+}
+
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
@@ -184,7 +236,7 @@ func updateAccessTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if token.Type != REFRESHTOKEN {
-		responseError(w, errors.New("Provide refreshToken, not access"), http.StatusUnauthorized)
+		responseError(w, errors.New("Provide refreshToken"), http.StatusUnauthorized)
 	}
 	if token.Lifetime.Before(time.Now()) {
 		responseError(w, errors.New("Expired token"), http.StatusUnauthorized)
@@ -227,10 +279,50 @@ func getAccessTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if token.Type != ACCESSTOKEN {
-		responseError(w, errors.New("Provide accessToken, not refresh"), http.StatusUnauthorized)
+		responseError(w, errors.New("Provide accessToken"), http.StatusUnauthorized)
+		return
 	}
 	if token.Lifetime.Before(time.Now()) {
 		responseError(w, errors.New("Expired token"), http.StatusUnauthorized)
+		return
+	}
+}
+
+type confirmationResponse struct {
+	Message string `json:"message"`
+}
+
+func confirmationHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	if _, ok := params["token"]; ok {
+		var token dbClient.TokenData
+		var err error
+		if token, err = db.GetToken(params["token"]); err != nil {
+			if err == dbClient.ErrNotFound {
+				responseError(w, errors.New("Invalid token"), http.StatusUnauthorized)
+			} else {
+				responseError(w, err, http.StatusInternalServerError)
+			}
+			return
+		}
+		if token.Type != CONFIRMATIONTOKEN {
+			responseError(w, errors.New("Provide confirmationToken"), http.StatusUnauthorized)
+			return
+		}
+		if token.Lifetime.Before(time.Now()) {
+			responseError(w, errors.New("Expired token"), http.StatusUnauthorized)
+			return
+		}
+		if err = db.ConfirmPhone(token.Username); err != nil {
+			responseError(w, err, http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(confirmationResponse{Message: "Registration completed"})
+		return
+	} else {
+		responseError(w, errors.New("Provide token"), http.StatusBadRequest)
+		return
 	}
 }
 
@@ -242,11 +334,15 @@ func main() {
 	if db, err = dbClient.InitClient(); err != nil {
 		log.Fatal(err)
 	}
+	if mq, err = mqClient.InitMQClient(); err != nil {
+		log.Fatal(err)
+	}
 	r := mux.NewRouter()
 	r.HandleFunc("/signUp", signUpHandler).Methods("POST")
 	r.HandleFunc("/signIn", signInHandler).Methods("POST")
 	r.HandleFunc("/refresh", updateAccessTokenHandler).Methods("PUT")
 	r.HandleFunc("/validate", getAccessTokenHandler).Methods("GET")
+	r.HandleFunc("/confirm/{token}", confirmationHandler).Methods("GET")
 	log.Println("Authentication server started")
 	log.Fatal(http.ListenAndServe(":8000", r))
 }

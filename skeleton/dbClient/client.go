@@ -50,7 +50,7 @@ func (db *Client) DeleteProduct(id uint64) (err error) {
 	return
 }
 
-func (db *Client) GetProducts(limit, offset uint64) (products []Product, err error) {
+func (db *Client) GetProducts(limit, offset int) (products []Product, err error) {
 	query := "SELECT id, title, category FROM products ORDER BY id DESC"
 	if limit != 0 {
 		query += fmt.Sprintf(` LIMIT %d`, limit)
