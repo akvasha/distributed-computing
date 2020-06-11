@@ -1,4 +1,4 @@
-module github.com/akvasha/distributed-computing
+module DC-homework-1/skeleton
 
 go 1.13
 

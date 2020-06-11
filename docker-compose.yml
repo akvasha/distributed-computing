@@ -4,9 +4,28 @@ services:
     image: postgres
     environment:
       POSTGRES_PASSWORD: DB_PASSWORD
+
   app:
-    build: .
+    build: ./skeleton
     ports:
     - 8000:8000
     environment:
       POSTGRES_ADDRESS: "host=db port=5432 user=postgres password=DB_PASSWORD dbname=postgres sslmode=disable"
+      AUTH_ADDRESS: "http://auth:8000/validate"
+    depends_on:
+      - db
+      - auth
+    restart: unless-stopped
+
+  auth:
+    build: ./authentication
+    ports:
+    - 8001:8000
+    environment:
+      POSTGRES_ADDRESS: "host=db port=5432 user=postgres password=DB_PASSWORD dbname=postgres sslmode=disable"
+      TOKEN_LENGTH: "64"
+      ACCESS_TOKEN_LIFETIME: "5m"
+      REFRESH_TOKEN_LIFETIME: "10m"
+    depends_on:
+      - db
+    restart: unless-stopped
