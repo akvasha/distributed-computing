@@ -95,6 +95,7 @@ func signUpHandler(w http.ResponseWriter, r *http.Request) {
 		Email:       req.Email,
 		Phone:       req.Phone,
 		PhoneStatus: false,
+		Admin:       false,
 	}
 	if err = db.AddUser(user); err != nil {
 		responseError(w, err, http.StatusInternalServerError)
@@ -201,7 +202,8 @@ func sendPhoneConfirmation(username string, phone string) (err error) {
 			}
 		}
 	}
-	reg := fmt.Sprintf("Confrim registration via token: %s", confirmationToken)
+	reg := fmt.Sprintf("Confirm registration via token: %s", confirmationToken)
+	log.Println(reg)
 	err = mq.SendMessage(mqClient.Message{
 		Receiver: phone,
 		Text:     reg,
@@ -326,6 +328,77 @@ func confirmationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type UserPermission struct {
+	Username string
+	Admin    bool
+}
+
+func ValidateAccess(token string) (permission UserPermission, err error) {
+	var tokenData dbClient.TokenData
+	if tokenData, err = db.GetToken(token); err != nil {
+		if err == dbClient.ErrNotFound {
+			err = errors.New("Invalid token")
+		}
+		return
+	}
+	if tokenData.Type != ACCESSTOKEN {
+		err = errors.New("Provide accessToken")
+		return
+	}
+	if tokenData.Lifetime.Before(time.Now()) {
+		err = errors.New("Expired token")
+		return
+	}
+	var user dbClient.User
+	if user, err = db.GetUser(tokenData.Username); err != nil {
+		if err == dbClient.ErrNotFound {
+			err = errors.New("Invalid user")
+		}
+		return
+	}
+	permission.Username = user.Username
+	permission.Admin = user.Admin
+	return
+}
+
+func ensurePermission(token string, adminRequired bool) (admin bool, err error) {
+	var permission UserPermission
+	if permission, err = ValidateAccess(token); err != nil {
+		return
+	}
+	if !permission.Admin {
+		return !adminRequired, nil
+	}
+	return true, nil
+}
+
+type SetPermissionRequest struct {
+	Username string `json:"username"`
+	Admin    bool   `json:"admin"`
+}
+
+func SetPermissionHandler(w http.ResponseWriter, r *http.Request) {
+	allow, err := ensurePermission(r.Header.Get("auth"), true)
+	if err != nil {
+		responseError(w, err, http.StatusUnauthorized)
+		return
+	}
+	if !allow {
+		responseError(w, errors.New("Not enough permissions"), http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	var req SetPermissionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		responseError(w, err, http.StatusBadRequest)
+		return
+	}
+	if err := db.SetPermission(req.Username, req.Admin); err != nil {
+		responseError(w, err, http.StatusBadRequest)
+		return
+	}
+}
+
 func main() {
 	var err error
 	if err = config.Init(); err != nil {
@@ -343,6 +416,8 @@ func main() {
 	r.HandleFunc("/refresh", updateAccessTokenHandler).Methods("PUT")
 	r.HandleFunc("/validate", getAccessTokenHandler).Methods("GET")
 	r.HandleFunc("/confirm/{token}", confirmationHandler).Methods("GET")
+	r.HandleFunc("/setPermission", SetPermissionHandler).Methods("PUT")
 	log.Println("Authentication server started")
+	go RunRPCServer()
 	log.Fatal(http.ListenAndServe(":8000", r))
 }

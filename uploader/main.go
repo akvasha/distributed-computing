@@ -43,10 +43,10 @@ func (c *Config) Init() (err error) {
 	return
 }
 
-func authorize(w http.ResponseWriter, r *http.Request) bool {
+func authorize(w http.ResponseWriter, r *http.Request, adminRequired bool) bool {
 	w.Header().Set("Content-Type", "application/json")
 	token := r.Header.Get("auth")
-	if err := ac.Validate(token); err != nil {
+	if err := ac.EnsurePermission(token, adminRequired); err != nil {
 		if errResp, ok := err.(*authClient.ErrorRespStatus); ok {
 			responseError(w, errResp, errResp.StatusCode)
 		} else {
@@ -58,7 +58,7 @@ func authorize(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
-	if !authorize(w, r) {
+	if !authorize(w, r, true) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

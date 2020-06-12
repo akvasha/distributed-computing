@@ -1,28 +1,31 @@
 package authClient
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
-	"net/http"
+	"google.golang.org/grpc"
+	pbauth "lib/proto"
 	"os"
 )
 
 type AuthClient struct {
-	client  http.Client
-	address string
+	client pbauth.AuthRpcClient
+	conn   *grpc.ClientConn
 }
 
 func InitAuthClient() (authClient AuthClient, err error) {
-	authClient = AuthClient{}
-	authClient.address = os.Getenv("AUTH_ADDRESS")
-	if len(authClient.address) == 0 {
+	options := []grpc.DialOption{grpc.WithInsecure()}
+	address := os.Getenv("AUTH_ADDRESS")
+	if len(address) == 0 {
 		return authClient, errors.New("Auth server address is not provided")
 	}
+	var conn *grpc.ClientConn
+	if conn, err = grpc.Dial(address, options...); err != nil {
+		return
+	}
+	authClient.conn = conn
+	authClient.client = pbauth.NewAuthRpcClient(conn)
 	return
-}
-
-type errorResp struct {
-	Error string `json:"error"`
 }
 
 type ErrorRespStatus struct {
@@ -34,25 +37,34 @@ func (e ErrorRespStatus) Error() string {
 	return e.ErrorResp.Error()
 }
 
-func (c *AuthClient) Validate(token string) (err error) {
-	var req *http.Request
-	if req, err = http.NewRequest("GET", c.address, nil); err != nil {
+type UserPermission struct {
+	Username string
+	Admin    bool
+}
+
+func (c *AuthClient) Validate(token string) (permission UserPermission, err error) {
+	req := &pbauth.ValidateRequest{
+		AccessToken: token,
+	}
+	var resp *pbauth.ValidateResponse
+	if resp, err = c.client.Validate(context.Background(), req); err != nil {
 		return
 	}
-	req.Header.Set("auth", token)
-	var resp *http.Response
-	if resp, err = c.client.Do(req); err != nil {
+	permission.Username = resp.Username
+	permission.Admin = resp.Admin
+	return
+}
+
+var errForbidden = errors.New("Not enough permissions")
+
+func (c *AuthClient) EnsurePermission(token string, adminRequired bool) (err error) {
+	var userPermission UserPermission
+	if userPermission, err = c.Validate(token); err != nil {
 		return
 	}
-	if resp.StatusCode != http.StatusOK {
-		var errResp errorResp
-		var err error
-		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			err = errors.New(errResp.Error)
-		}
-		return &ErrorRespStatus{
-			StatusCode: resp.StatusCode,
-			ErrorResp:  err,
+	if !userPermission.Admin {
+		if adminRequired {
+			return errForbidden
 		}
 	}
 	return

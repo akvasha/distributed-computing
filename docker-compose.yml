@@ -15,7 +15,7 @@ services:
     - 8000:8000
     environment:
       POSTGRES_ADDRESS: "host=db port=5432 user=postgres password=DB_PASSWORD dbname=postgres sslmode=disable"
-      AUTH_ADDRESS: "http://auth:8000/validate"
+      AUTH_ADDRESS: "auth:5300"
     depends_on:
       - db
       - auth
@@ -89,5 +89,5 @@ services:
     environment:
       MESSAGE_QUEUE_ADDRESS: "amqp://guest:guest@rabbit-mq:5672/"
       BATCH_SIZE: "500"
-      AUTH_ADDRESS: "http://auth:8000/validate"
+      AUTH_ADDRESS: "auth:5300"
     restart: unless-stopped

@@ -24,7 +24,7 @@ func responseError(w http.ResponseWriter, err error, statusCode int) {
 }
 
 func dbCreateProduct(w http.ResponseWriter, r *http.Request) {
-	if !authorize(w, r) {
+	if !authorize(w, r, true) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -42,7 +42,7 @@ func dbCreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func dbDeleteProduct(w http.ResponseWriter, r *http.Request) {
-	if !authorize(w, r) {
+	if !authorize(w, r, true) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -64,7 +64,7 @@ type GetProductsResponse struct {
 }
 
 func dbGetProducts(w http.ResponseWriter, r *http.Request) {
-	if !authorize(w, r) {
+	if !authorize(w, r, false) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -101,7 +101,7 @@ func dbGetProducts(w http.ResponseWriter, r *http.Request) {
 }
 
 func dbGetProduct(w http.ResponseWriter, r *http.Request) {
-	if !authorize(w, r) {
+	if !authorize(w, r, false) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -120,7 +120,7 @@ func dbGetProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func dbUpdateProduct(w http.ResponseWriter, r *http.Request) {
-	if !authorize(w, r) {
+	if !authorize(w, r, true) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -135,10 +135,10 @@ func dbUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func authorize(w http.ResponseWriter, r *http.Request) bool {
+func authorize(w http.ResponseWriter, r *http.Request, adminRequired bool) bool {
 	w.Header().Set("Content-Type", "application/json")
 	token := r.Header.Get("auth")
-	if err := ac.Validate(token); err != nil {
+	if err := ac.EnsurePermission(token, adminRequired); err != nil {
 		if errResp, ok := err.(*authClient.ErrorRespStatus); ok {
 			responseError(w, errResp, errResp.StatusCode)
 		} else {

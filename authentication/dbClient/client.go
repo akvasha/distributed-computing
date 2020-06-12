@@ -22,6 +22,7 @@ type User struct {
 	Email       string
 	Phone       string
 	PhoneStatus bool
+	Admin       bool
 }
 
 func InitClient() (dbClient Client, err error) {
@@ -40,7 +41,8 @@ func InitClient() (dbClient Client, err error) {
 			password TEXT NOT NULL,
 			email TEXT NOT NULL,
 			phone TEXT NOT NULL,
-			phone_status BOOLEAN NOT NULL
+			phone_status BOOLEAN NOT NULL,
+			admin BOOLEAN NOT NULL
 		)`); err != nil {
 		return Client{}, err
 	}
@@ -62,8 +64,8 @@ var duplicate = "duplicate key"
 func (db *Client) AddUser(user User) (err error) {
 	_, err = db.conn.Exec(
 		context.Background(),
-		`INSERT INTO users (username, password, email, phone, phone_status) VALUES ($1, $2, $3, $4, $5)
-		`, user.Username, user.Password, user.Email, user.Phone, user.PhoneStatus)
+		`INSERT INTO users (username, password, email, phone, phone_status, admin) VALUES ($1, $2, $3, $4, $5, $6)
+		`, user.Username, user.Password, user.Email, user.Phone, user.PhoneStatus, user.Admin)
 	if strings.Contains(fmt.Sprintln(err), duplicate) {
 		return errors.New("Such user already exists")
 	}
@@ -73,8 +75,8 @@ func (db *Client) AddUser(user User) (err error) {
 func (db *Client) GetUser(username string) (user User, err error) {
 	if err = db.conn.QueryRow(
 		context.Background(),
-		`SELECT username, password, email, phone, phone_status FROM users WHERE username=$1
-		`, username).Scan(&user.Username, &user.Password, &user.Email, &user.Phone, &user.PhoneStatus); err == pgx.ErrNoRows {
+		`SELECT username, password, email, phone, phone_status, admin FROM users WHERE username=$1
+		`, username).Scan(&user.Username, &user.Password, &user.Email, &user.Phone, &user.PhoneStatus, &user.Admin); err == pgx.ErrNoRows {
 		return User{}, ErrNotFound
 	}
 	return
@@ -118,6 +120,17 @@ func (db *Client) AddToken(token TokenData) (err error) {
 		`, token.Token, token.Type, token.Lifetime, token.Username)
 	if strings.Contains(fmt.Sprintln(err), duplicate) {
 		return ErrorDuplicateToken
+	}
+	return
+}
+
+func (db *Client) SetPermission(username string, setAdmin bool) (err error) {
+	r, err := db.conn.Exec(
+		context.Background(),
+		`UPDATE users SET admin=$1 WHERE username=$2
+		`, setAdmin, username)
+	if err == nil && r.RowsAffected() != 1 {
+		return ErrNotFound
 	}
 	return
 }
