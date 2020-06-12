@@ -6,7 +6,11 @@ services:
       POSTGRES_PASSWORD: DB_PASSWORD
 
   app:
-    build: ./skeleton
+    build:
+      context: ./
+      dockerfile: Dockerfile-main
+      args:
+        service_name: skeleton
     ports:
     - 8000:8000
     environment:
@@ -18,7 +22,11 @@ services:
     restart: unless-stopped
 
   auth:
-    build: ./authentication
+    build:
+      context: ./
+      dockerfile: Dockerfile-main
+      args:
+        service_name: authentication
     ports:
     - 8001:8000
     environment:
@@ -41,11 +49,45 @@ services:
     restart: unless-stopped
 
   notifier:
-    build: ./notification
+    build:
+      context: ./
+      dockerfile: Dockerfile-main
+      args:
+        service_name: notification
     environment:
       MESSAGE_QUEUE_ADDRESS: "amqp://guest:guest@rabbit-mq:5672/"
       SMS_HOST: "https://sms.ru"
       SMS_API_ID: "${SMS_API_ID}"
     depends_on:
       - rabbit-mq
+    restart: unless-stopped
+
+  importer:
+    build:
+      context: ./
+      dockerfile: Dockerfile-main
+      args:
+        service_name: importer
+    depends_on:
+      - rabbit-mq
+      - db
+    environment:
+      MESSAGE_QUEUE_ADDRESS: "amqp://guest:guest@rabbit-mq:5672/"
+      POSTGRES_ADDRESS: "host=db port=5432 user=postgres password=DB_PASSWORD dbname=postgres sslmode=disable"
+    restart: unless-stopped
+
+  uploader:
+    build:
+      context: ./
+      dockerfile: Dockerfile-main
+      args:
+        service_name: uploader
+    ports:
+    - 8002:8000
+    depends_on:
+      - rabbit-mq
+    environment:
+      MESSAGE_QUEUE_ADDRESS: "amqp://guest:guest@rabbit-mq:5672/"
+      BATCH_SIZE: "500"
+      AUTH_ADDRESS: "http://auth:8000/validate"
     restart: unless-stopped

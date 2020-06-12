@@ -1,11 +1,11 @@
 package main
 
 import (
-	"DC-homework-1/skeleton/authClient"
-	"DC-homework-1/skeleton/dbClient"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	"lib/authClient"
+	"lib/dbClient"
 	"log"
 	"net/http"
 	"strconv"
@@ -58,6 +58,11 @@ func dbDeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type GetProductsResponse struct {
+	Total    int64              `json:"total"`
+	Products []dbClient.Product `json:"products"`
+}
+
 func dbGetProducts(w http.ResponseWriter, r *http.Request) {
 	if !authorize(w, r) {
 		return
@@ -85,7 +90,14 @@ func dbGetProducts(w http.ResponseWriter, r *http.Request) {
 		responseError(w, err, http.StatusInternalServerError)
 		return
 	}
-	_ = json.NewEncoder(w).Encode(products)
+	var total int64
+	if total, err = db.CountProducts(); err != nil {
+		responseError(w, err, http.StatusInternalServerError)
+	}
+	_ = json.NewEncoder(w).Encode(GetProductsResponse{
+		Total:    total,
+		Products: products,
+	})
 }
 
 func dbGetProduct(w http.ResponseWriter, r *http.Request) {
