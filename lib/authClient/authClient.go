@@ -55,7 +55,7 @@ func (c *AuthClient) Validate(token string) (permission UserPermission, err erro
 	return
 }
 
-var errForbidden = errors.New("Not enough permissions")
+var ErrForbidden = errors.New("Not enough permissions")
 
 func (c *AuthClient) EnsurePermission(token string, adminRequired bool) (err error) {
 	var userPermission UserPermission
@@ -64,7 +64,7 @@ func (c *AuthClient) EnsurePermission(token string, adminRequired bool) (err err
 	}
 	if !userPermission.Admin {
 		if adminRequired {
-			return errForbidden
+			return ErrForbidden
 		}
 	}
 	return

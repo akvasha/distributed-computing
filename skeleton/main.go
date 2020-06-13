@@ -139,8 +139,8 @@ func authorize(w http.ResponseWriter, r *http.Request, adminRequired bool) bool 
 	w.Header().Set("Content-Type", "application/json")
 	token := r.Header.Get("auth")
 	if err := ac.EnsurePermission(token, adminRequired); err != nil {
-		if errResp, ok := err.(*authClient.ErrorRespStatus); ok {
-			responseError(w, errResp, errResp.StatusCode)
+		if err == authClient.ErrForbidden {
+			responseError(w, err, http.StatusForbidden)
 		} else {
 			responseError(w, err, http.StatusInternalServerError)
 		}
