@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package pbauth;
+
+service AuthRpc {
+  rpc Validate (ValidateRequest) returns (ValidateResponse);
+}
+
+message ValidateRequest {
+  string accessToken = 1;
+}
+
+message ValidateResponse {
+  string username = 1;
+  bool admin = 2;
+} 

@@ -1,0 +1,11 @@
+FROM golang:1.13
+ARG service_name
+ENV DIR_NAME=${service_name}
+WORKDIR /usr/src/app/${DIR_NAME}/
+COPY ${DIR_NAME}/go.mod .
+COPY ${DIR_NAME}/go.sum .
+COPY lib/ ../lib/
+RUN go mod download
+COPY ${DIR_NAME}/ .
+RUN go build -o main .
+CMD ["./main"]

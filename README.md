@@ -1,1 +1,8 @@
-Repository for distributed computing homework project.
+# Домашнее задание 1
+В данном приложении реализована логика работы с товарами посредством REST API. Хранение товаров реализовано с использованием базы данных POSTGRES.
+
+## Запуск
+Запуска приложения осуществляется с помощью докера.
+```
+docker-compose build && docker-compose up
+```
